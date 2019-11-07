@@ -1,3 +1,4 @@
+require 'cgi'
 myprogram = ARGV[0]
 
 ### PARSE LLVM-DWARFDUMP
@@ -20,6 +21,7 @@ file_number = 0;
 file_name = ""
 file_number_to_name = {}
 assembly_addr_to_sourceline = {}
+assembly_addr_to_filename = {}
 # EXTRACT INFO FROM LLVM-DWARFDMP --DEBUG-LINE OUTPUT
 llvmOut.each{ |l|
 
@@ -41,6 +43,7 @@ llvmOut.each{ |l|
     source_file_number = Regexp.last_match(4).to_i
     
     file_name = file_number_to_name[source_file_number]
+    assembly_addr_to_filename[assembly_addr] = file_name
     file = File.open("main.c") 
     #TODO:file_num,file_name pair is stored,but not working properly here 
     
@@ -68,16 +71,61 @@ objdumpIO.close
 
 objdump_addr_matcher = /^(\s*)+([0-9]*):+\s([0-9a-z].*)$/
 
-objdumpOut.each{ |l|
-  if objdump_addr_matcher.match(l) then
-    objdump_assembly_addr = Regexp.last_match(2) 
+#objdumpOut.each{ |l|
+#  if objdump_addr_matcher.match(l) then
+#    objdump_assembly_addr = Regexp.last_match(2) 
     #puts objdump_assembly_addr
     #puts assembly_addr_to_sourceline.key?("401106")
+    #
+#    puts l
+#    if assembly_addr_to_sourceline.key?(objdump_assembly_addr) then
+#      puts assembly_addr_to_filename[objdump_assembly_addr]
+#      puts "***************"
+#      print  assembly_addr_to_sourceline[objdump_assembly_addr]
+#      puts "***************"
+#    end
+#  end
+#}
+
+#htmlFile = File.new("index.html","w+")
+html_text ="
+<!DOCTYPE html>
+<head>
+ <title>xref for binary file
+ </title>
+ <style type=\"text/css\">
+   *{ font-family: monospace; }
+ </style>
+</head>
+
+<body>
+ <h2>xref for binary file</h2>
+ <table> 
+"
+
+objdumpOut.each{ |l|
+  if objdump_addr_matcher.match(l) then
+    objdump_assembly_addr = Regexp.last_match(2)
+    #puts objdump_assembly_addr
+    #puts assembly_addr_to_sourceline.key?("401106")
+    #
+    html_text += "  <tr>\n"
+    html_text += " <td>\n"
+    html_text += "        "+ CGI.escapeHTML(l).gsub(/ /, "&nbsp;")+"<br>\n"
+    html_text += "        </td>\n"
+    html_text += "        </tr>\n"
     if assembly_addr_to_sourceline.key?(objdump_assembly_addr) then
+      puts assembly_addr_to_filename[objdump_assembly_addr]
       puts "***************"
-      puts assembly_addr_to_sourceline[objdump_assembly_addr]
+      print  assembly_addr_to_sourceline[objdump_assembly_addr]
       puts "***************"
     end
-    puts l
   end
 }
+html_text += "
+ </table>
+</body>
+</html>"
+
+
+ File.write("./index.html",html_text)
